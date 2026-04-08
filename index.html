@@ -177,6 +177,7 @@ input:focus,select:focus,textarea:focus{border-color:#00b4a0;box-shadow:0 0 0 3p
 
 @media print{.hdr,.btn,.dmsg{display:none!important;}body{background:white;}.sub-body{display:block!important;}}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -982,7 +983,8 @@ function getConteudo(){
 }
 
 function getNome(){
-  return 'Vistoria_'+E.emp.nome.replace(/[^a-zA-Z0-9]/g,'_').substring(0,25)+'_'+(E.data||'sd')+'.txt';
+  var ano = E.data ? E.data.substring(0,4) : '2026';
+  return 'Vistoria_'+ano+'_'+E.emp.nome.replace(/[^a-zA-Z0-9]/g,'_').substring(0,30)+'.pdf';
 }
 function showMsg(t,tp){
   var m=document.getElementById('dmsg');
@@ -1018,17 +1020,62 @@ function salvarDrive(){
     '&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.file&prompt=consent';
 }
 async function uploadDrive(token){
-  var boundary='--cl_boundary';
-  var meta={name:getNome(),mimeType:'text/plain'};
-  var body='--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+
-    JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: text/plain\r\n\r\n'+
-    getConteudo()+'\r\n--'+boundary+'--';
   try{
+    var pdfBlob = await gerarPDFBlob();
+    var boundary='--cl_boundary';
+    var meta={name:getNome(),mimeType:'application/pdf'};
+    var enc = new TextEncoder();
+    var part1 = enc.encode('--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/pdf\r\n\r\n');
+    var part2 = new Uint8Array(await pdfBlob.arrayBuffer());
+    var part3 = enc.encode('\r\n--'+boundary+'--');
+    var body = new Uint8Array(part1.length + part2.length + part3.length);
+    body.set(part1, 0); body.set(part2, part1.length); body.set(part3, part1.length + part2.length);
     var r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
       {method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'multipart/related; boundary='+boundary},body:body});
     if(r.ok) showMsg('✅ Salvo no Google Drive!','ok');
     else throw new Error();
-  }catch(e){ baixarTxt(); showMsg('⚠️ Erro no Drive. Arquivo baixado localmente.','err'); }
+  }catch(e){ showMsg('⚠️ Erro ao salvar no Drive.','err'); }
+}
+
+async function gerarPDFBlob(){
+  const {jsPDF} = window.jspdf;
+  var doc = new jsPDF();
+  var dt = E.data ? new Date(E.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+  var y = 15;
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text('CHECKLIST - NR-1 / NR-17', 105, y, {align:'center'}); y+=8;
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text('Empresa: '+E.emp.nome, 14, y); y+=6;
+  doc.text('CNPJ: '+(E.emp.cnpj_fmt||'-')+'   Tecnico: '+(E.tec||'-')+'   Data: '+dt, 14, y); y+=6;
+  var c=0,nc=0,na=0;
+  E.setores.forEach(function(s){
+    var resp=E.resps[s]||{};
+    SUBITENS.forEach(function(sub,si){ sub.pergs.forEach(function(p,pi){ var r=resp[si+'_'+pi]; if(r==='c')c++; else if(r==='nc')nc++; else if(r==='na')na++; }); });
+  });
+  doc.setFont('helvetica','bold');
+  doc.text('Adequados: '+c+'   Nao Adequados: '+nc+'   NA: '+na, 14, y); y+=8;
+  doc.line(14, y, 196, y); y+=6;
+  E.setores.forEach(function(s){
+    var resp=E.resps[s]; if(!resp) return;
+    if(y>270){doc.addPage();y=15;}
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text('Setor: '+s, 14, y); y+=6;
+    SUBITENS.forEach(function(sub,si){
+      if(y>270){doc.addPage();y=15;}
+      doc.setFont('helvetica','bold'); doc.setFontSize(10);
+      doc.text('['+sub.nr+'] '+sub.nome, 14, y); y+=5;
+      sub.pergs.forEach(function(p,pi){
+        if(y>275){doc.addPage();y=15;}
+        var id=si+'_'+pi, r=resp[id];
+        var st=r==='c'?'[C ]':r==='nc'?'[NC]':r==='na'?'[NA]':'[  ]';
+        doc.setFont('helvetica','normal'); doc.setFontSize(9);
+        doc.text(st+' '+p, 18, y); y+=5;
+        if(r==='nc'&&resp['obs'+id]){doc.setTextColor(180,0,0);doc.text('   Obs: '+resp['obs'+id],18,y);doc.setTextColor(0,0,0);y+=5;}
+        if(r==='nc'&&resp['prz'+id]){doc.text('   Prazo: '+resp['prz'+id],18,y);y+=5;}
+      }); y+=2;
+    }); y+=3;
+  });
+  return doc.output('blob');
 }
 function abrirDriveCfg(){ document.getElementById('modal-drive').classList.add('vis'); }
 function fecharDriveCfg(){ document.getElementById('modal-drive').classList.remove('vis'); }
