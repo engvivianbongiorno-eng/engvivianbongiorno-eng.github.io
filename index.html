@@ -1024,18 +1024,30 @@ function salvarDrive(){
 async function uploadDrive(token){
   try{
     showMsg('⏳ Gerando PDF...','load');
-    var pdfBlob = await gerarPDFBlob();
-    var boundary='--cl_boundary';
-    var meta={name:getNome(),mimeType:'application/pdf'};
+    var nomBase='Vistoria_'+(E.data?E.data.substring(0,4):'2026')+'_'+E.emp.nome.replace(/[^a-zA-Z0-9]/g,'_').substring(0,30);
+    // 1. Salvar TXT para o Relatorio
+    var txtContent=getConteudo();
     var enc=new TextEncoder();
-    var p1=enc.encode('--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/pdf\r\n\r\n');
+    var bnd='--cl_bnd';
+    var metaTxt={name:nomBase+'.txt',mimeType:'text/plain'};
+    var t1=enc.encode('--'+bnd+'\r\nContent-Type: application/json\r\n\r\n'+JSON.stringify(metaTxt)+'\r\n--'+bnd+'\r\nContent-Type: text/plain\r\n\r\n');
+    var t2=enc.encode(txtContent);
+    var t3=enc.encode('\r\n--'+bnd+'--');
+    var bodyTxt=new Uint8Array(t1.length+t2.length+t3.length);
+    bodyTxt.set(t1,0); bodyTxt.set(t2,t1.length); bodyTxt.set(t3,t1.length+t2.length);
+    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+      {method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'multipart/related; boundary='+bnd},body:bodyTxt});
+    // 2. Salvar PDF visual
+    var pdfBlob=await gerarPDFBlob();
+    var metaPdf={name:nomBase+'.pdf',mimeType:'application/pdf'};
+    var p1=enc.encode('--'+bnd+'\r\nContent-Type: application/json\r\n\r\n'+JSON.stringify(metaPdf)+'\r\n--'+bnd+'\r\nContent-Type: application/pdf\r\n\r\n');
     var p2=new Uint8Array(await pdfBlob.arrayBuffer());
-    var p3=enc.encode('\r\n--'+boundary+'--');
-    var body=new Uint8Array(p1.length+p2.length+p3.length);
-    body.set(p1,0); body.set(p2,p1.length); body.set(p3,p1.length+p2.length);
+    var p3=enc.encode('\r\n--'+bnd+'--');
+    var bodyPdf=new Uint8Array(p1.length+p2.length+p3.length);
+    bodyPdf.set(p1,0); bodyPdf.set(p2,p1.length); bodyPdf.set(p3,p1.length+p2.length);
     var r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-      {method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'multipart/related; boundary='+boundary},body:body});
-    if(r.ok) showMsg('✅ Salvo no Google Drive!','ok');
+      {method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'multipart/related; boundary='+bnd},body:bodyPdf});
+    if(r.ok) showMsg('✅ TXT e PDF salvos no Google Drive!','ok');
     else throw new Error();
   }catch(e){ showMsg('⚠️ Erro ao salvar no Drive.','err'); console.error(e); }
 }
