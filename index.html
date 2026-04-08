@@ -1000,7 +1000,7 @@ function salvarDrive(){
   var cid=localStorage.getItem('gd_cid')||'452320350163-r4k8gn2o5vtkvpf5qhdecpvas9llkrv1.apps.googleusercontent.com';
   if(!cid){abrirDriveCfg();return;}
   showMsg('⏳ Conectando ao Google Drive...','load');
-  var redirect=location.origin+location.pathname;
+  var redirect='https://engvivianbongiorno-eng.github.io/index.html';
   var hash={};
   location.hash.replace('#','').split('&').filter(function(p){return p;}).forEach(function(p){
     var kv=p.split('='); hash[kv[0]]=kv[1];
