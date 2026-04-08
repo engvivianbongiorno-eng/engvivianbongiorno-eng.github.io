@@ -999,7 +999,7 @@ function baixarTxt(){
   a.href=u; a.download=getNome(); a.click(); URL.revokeObjectURL(u);
 }
 function salvarDrive(){
-  var cid=localStorage.getItem('gd_cid');
+  var cid=localStorage.getItem('gd_cid')||'452320350163-r4k8gn2o5vtkvpf5qhdecpvas9llkrv1.apps.googleusercontent.com';
   if(!cid){abrirDriveCfg();return;}
   showMsg('⏳ Conectando ao Google Drive...','load');
   var redirect=location.origin+location.pathname;
