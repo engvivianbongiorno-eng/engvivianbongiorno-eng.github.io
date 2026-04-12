@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Autenticando...</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #0d1b2a; color: #fff;
+         display: flex; align-items: center; justify-content: center;
+         height: 100vh; margin: 0; flex-direction: column; gap: 16px; }
+  .spinner { width: 40px; height: 40px; border: 4px solid #334155;
+             border-top-color: #3b82f6; border-radius: 50%;
+             animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  p { color: #94a3b8; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="spinner"></div>
+<p>Autenticando com Google...</p>
+<script>
+(function(){
+  // O Google retorna o access_token no hash da URL (#access_token=...&...)
+  var hash = {};
+  location.hash.replace(/^#/, '').split('&').filter(Boolean).forEach(function(p){
+    var idx = p.indexOf('=');
+    if (idx > 0) hash[p.substring(0, idx)] = decodeURIComponent(p.substring(idx + 1));
+  });
+
+  // Grava no localStorage com verificação — iOS Safari pode falhar silenciosamente
+  try {
+    if (hash.access_token) {
+      localStorage.setItem('oauth_token', hash.access_token);
+      localStorage.removeItem('oauth_cancelled');
+    } else {
+      localStorage.setItem('oauth_cancelled', '1');
+      localStorage.removeItem('oauth_token');
+    }
+  } catch(e) {
+    // localStorage bloqueado (modo privado restrito) — passa o token via hash na URL de retorno
+    var fallbackHash = hash.access_token
+      ? '#oauth_token=' + encodeURIComponent(hash.access_token)
+      : '#oauth_cancelled=1';
+    location.replace('https://engvivianbongiorno-eng.github.io/index.html' + fallbackHash);
+    return;
+  }
+
+  // Pequeno delay garante que o localStorage foi persistido antes do redirect
+  // (necessário em alguns builds do Safari Mobile)
+  setTimeout(function(){
+    location.replace('https://engvivianbongiorno-eng.github.io/index.html');
+  }, 80);
+})();
+</script>
+</body>
+</html>
