@@ -1047,34 +1047,25 @@ async function sha256Base64url(str){
     .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 
-async function salvarDrive(){
+function salvarDrive(){
   var cid=localStorage.getItem('gd_cid');
   if(!cid){abrirDriveCfg();return;}
-
-  // Salva estado antes de sair para o Google
-  var dvJson = JSON.stringify({emp:E.emp, setores:E.setores, tec:E.tec, data:E.data, resps:E.resps});
-  localStorage.setItem('dv', dvJson);
-
-  // Gerar PKCE
-  var verifier = gerarRandomBase64url(64);
-  var challenge = await sha256Base64url(verifier);
-  var state = gerarRandomBase64url(16);
-  localStorage.setItem('pkce_verifier', verifier);
-  localStorage.setItem('pkce_state', state);
-
-  var redirect='https://engvivianbongiorno-eng.github.io/callback.html';
-  var oauthUrl='https://accounts.google.com/o/oauth2/v2/auth'+
-    '?client_id='+encodeURIComponent(cid)+
-    '&redirect_uri='+encodeURIComponent(redirect)+
-    '&response_type=code'+
-    '&scope='+encodeURIComponent('https://www.googleapis.com/auth/drive.file')+
-    '&code_challenge='+challenge+
-    '&code_challenge_method=S256'+
-    '&state='+state+
-    '&prompt=select_account';
-
   showMsg('⏳ Conectando ao Google Drive...','load');
-  location.href = oauthUrl;
+  var redirect='https://engvivianbongiorno-eng.github.io/index.html';
+  var hash={};
+  location.hash.replace('#','').split('&').filter(function(p){return p;}).forEach(function(p){
+    var kv=p.split('='); hash[kv[0]]=kv[1];
+  });
+  if(hash.access_token){
+    history.replaceState(null,'',location.pathname);
+    uploadDrive(hash.access_token);
+    return;
+  }
+  sessionStorage.setItem('dp','1');
+  sessionStorage.setItem('dv', JSON.stringify({emp:E.emp, setores:E.setores, tec:E.tec, data:E.data, resps:E.resps}));
+  location.href='https://accounts.google.com/o/oauth2/v2/auth?client_id='+encodeURIComponent(cid)
+    +'&redirect_uri='+encodeURIComponent(redirect)
+    +'&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.file&prompt=select_account';
 }
 async function trocarCodePorToken(code, verifier, cid, redirect){
   var resp = await fetch('https://oauth2.googleapis.com/token', {
@@ -1289,115 +1280,24 @@ function tela(n){
 
 // Único ponto de entrada — inicializa o app e trata retorno OAuth
 window.addEventListener('load', function(){
-
-  function limparFlags(){
-    sessionStorage.removeItem('dp');
-    localStorage.removeItem('dp');
-  }
-
-  function restaurarEstado(dv){
-    try{
-      var sv=JSON.parse(dv);
-      E.emp=sv.emp; E.setores=sv.setores; E.tec=sv.tec; E.data=sv.data; E.resps=sv.resps;
-      localStorage.removeItem('dv');
-      sessionStorage.removeItem('dv');
-      if(E.tec) document.getElementById('f-tec').value = E.tec;
-      if(E.data) document.getElementById('f-data').value = E.data;
-      if(E.emp){
-        document.getElementById('inp-nome').value = E.emp.nome;
-        document.getElementById('emp-box').style.display = 'block';
-        document.getElementById('emp-nome').textContent = E.emp.nome;
-        document.getElementById('emp-det').textContent = 'CNPJ: '+(E.emp.cnpj_fmt||'—')+' · '+E.emp.setores.length+' setores';
-      }
-      return true;
-    }catch(ex){ return false; }
-  }
-
-  // Inicializar app primeiro (garante DOM pronto para restaurarEstado)
   iniciarApp();
 
-  // Função central de tratamento de retorno OAuth PKCE (usada por load e pageshow)
-  function tratarRetornoOAuth(){
-    // PKCE: Google redireciona com ?code=...&state=...
-    var params = {};
-    location.search.replace(/^\?/,'').split('&').filter(Boolean).forEach(function(p){
-      var idx=p.indexOf('=');
-      if(idx>0) params[p.substring(0,idx)]=decodeURIComponent(p.substring(idx+1));
+  if(sessionStorage.getItem('dp')){
+    var hash={};
+    location.hash.replace('#','').split('&').filter(function(p){return p;}).forEach(function(p){
+      var kv=p.split('='); hash[kv[0]]=decodeURIComponent(kv[1]||'');
     });
-
-    var code = params.code || '';
-    var stateRetorno = params.state || '';
-    var erro = params.error || '';
-
-    // Fallback token implícito (hash) — mantido para compatibilidade
-    var tokenDireto = localStorage.getItem('oauth_token') || '';
-    var cancelado = (localStorage.getItem('oauth_cancelled') || erro === 'access_denied') ? '1' : '';
-
-    var dv = localStorage.getItem('dv') || '';
-
-    if(!code && !tokenDireto && !cancelado) return; // não é retorno OAuth
-
-    // Limpa params da URL sem recarregar
-    history.replaceState(null,'',location.pathname);
-
-    localStorage.removeItem('oauth_token');
-    localStorage.removeItem('oauth_cancelled');
-
-    if(code && dv){
-      var verifier = localStorage.getItem('pkce_verifier') || '';
-      var stateGuardado = localStorage.getItem('pkce_state') || '';
-      var cid = localStorage.getItem('gd_cid') || '';
-      localStorage.removeItem('pkce_verifier');
-      localStorage.removeItem('pkce_state');
-
-      if(stateRetorno && stateGuardado && stateRetorno !== stateGuardado){
-        showMsg('⚠️ Erro de segurança OAuth (state inválido).','err');
-        return;
-      }
-
-      limparFlags();
-      restaurarEstado(dv);
+    if(hash.access_token){
+      sessionStorage.removeItem('dp');
+      history.replaceState(null,'',location.pathname);
+      var dv=sessionStorage.getItem('dv');
+      if(dv){try{var sv=JSON.parse(dv);E.emp=sv.emp;E.setores=sv.setores;E.tec=sv.tec;E.data=sv.data;E.resps=sv.resps;sessionStorage.removeItem('dv');}catch(ex){}}
       montarResultado();
       tela(4);
-      showMsg('⏳ Trocando código por token...','load');
-      var redirect='https://engvivianbongiorno-eng.github.io/callback.html';
-      trocarCodePorToken(code, verifier, cid, redirect)
-        .then(function(tk){ uploadDrive(tk); })
-        .catch(function(e){ showMsg('⚠️ Erro OAuth: '+e.message,'err'); console.error(e); });
-
-    } else if(tokenDireto && dv){
-      // fallback fluxo implícito (desktop antigo)
-      limparFlags();
-      restaurarEstado(dv);
-      montarResultado();
-      tela(4);
-      showMsg('⏳ Salvando no Drive...','load');
-      uploadDrive(tokenDireto);
-
-    } else if(cancelado && dv){
-      limparFlags();
-      var ok = restaurarEstado(dv);
-      if(ok){
-        var temResps = E.resps && Object.keys(E.resps).length > 0;
-        if(temResps){
-          renderChips();
-          document.getElementById('btn-resultado').style.display = 'block';
-          tela(2);
-        } else if(E.emp){
-          renderChips();
-          tela(2);
-        }
-        showMsg('⚠️ Login cancelado. Seus dados foram recuperados.','err');
-      }
+      showMsg('⏳ Salvando...','load');
+      uploadDrive(hash.access_token);
     }
   }
-
-  tratarRetornoOAuth();
-
-  // iOS Safari BFCache: página pode restaurar do cache sem disparar 'load' novamente
-  window.addEventListener('pageshow', function(e){
-    if(e.persisted) tratarRetornoOAuth();
-  });
 });
 </script>
 </body>
