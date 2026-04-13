@@ -1047,7 +1047,7 @@ async function sha256Base64url(str){
     .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 
-function salvarDrive(){
+async function salvarDrive(){
   var cid=localStorage.getItem('gd_cid');
   if(!cid){abrirDriveCfg();return;}
 
@@ -1055,12 +1055,22 @@ function salvarDrive(){
   var dvJson = JSON.stringify({emp:E.emp, setores:E.setores, tec:E.tec, data:E.data, resps:E.resps});
   localStorage.setItem('dv', dvJson);
 
+  // Gerar PKCE
+  var verifier = gerarRandomBase64url(64);
+  var challenge = await sha256Base64url(verifier);
+  var state = gerarRandomBase64url(16);
+  localStorage.setItem('pkce_verifier', verifier);
+  localStorage.setItem('pkce_state', state);
+
   var redirect='https://engvivianbongiorno-eng.github.io/callback.html';
   var oauthUrl='https://accounts.google.com/o/oauth2/v2/auth'+
     '?client_id='+encodeURIComponent(cid)+
     '&redirect_uri='+encodeURIComponent(redirect)+
-    '&response_type=token'+
+    '&response_type=code'+
     '&scope='+encodeURIComponent('https://www.googleapis.com/auth/drive.file')+
+    '&code_challenge='+challenge+
+    '&code_challenge_method=S256'+
+    '&state='+state+
     '&prompt=select_account';
 
   showMsg('⏳ Conectando ao Google Drive...','load');
