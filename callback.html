@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/><title>Autenticando...</title></head>
+<body>
+<p style="font-family:sans-serif;color:#475569;text-align:center;margin-top:40px;">Autenticando... aguarde.</p>
+<script>
+  var APP = 'https://engvivianbongiorno-eng.github.io/index.html';
+
+  // PKCE: Google retorna ?code=...&state=...  (ou ?error=...)
+  var qs = {};
+  location.search.replace(/^\?/,'').split('&').filter(Boolean).forEach(function(p){
+    var i = p.indexOf('=');
+    if(i > 0) qs[p.substring(0,i)] = decodeURIComponent(p.substring(i+1));
+  });
+
+  if(qs.code){
+    // Repassa code e state de volta ao app via query string
+    location.replace(APP + '?code=' + encodeURIComponent(qs.code) +
+      (qs.state ? '&state=' + encodeURIComponent(qs.state) : ''));
+  } else if(qs.error){
+    location.replace(APP + '?error=' + encodeURIComponent(qs.error));
+  } else {
+    // Fallback: fluxo implícito legado (hash #access_token=...)
+    var h = {};
+    location.hash.replace(/^#/,'').split('&').filter(Boolean).forEach(function(p){
+      var i = p.indexOf('=');
+      if(i > 0) h[p.substring(0,i)] = decodeURIComponent(p.substring(i+1));
+    });
+    if(h.access_token){
+      localStorage.setItem('oauth_token', h.access_token);
+      location.replace(APP);
+    } else {
+      localStorage.setItem('oauth_cancelled', '1');
+      location.replace(APP);
+    }
+  }
+</script>
+</body>
+</html>
