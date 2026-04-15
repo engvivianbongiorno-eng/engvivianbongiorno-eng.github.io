@@ -1014,18 +1014,13 @@ function showMsg(t,tp){
   if(tp!=='load') setTimeout(function(){m.style.display='none';},5000);
 }
 function baixarTxt(){
-  var conteudo = getConteudo();
   var nomeArq = getNome().replace('.pdf','.txt');
-  var b = new Blob([conteudo], {type:'text/plain;charset=utf-8'});
-  var file = new File([b], nomeArq, {type:'text/plain'});
-  var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if(isMobile && navigator.canShare && navigator.canShare({files:[file]})){
-    navigator.share({files:[file], title:'Vistoria', text:'Relatório de Vistoria'});
-  } else {
-    var u = URL.createObjectURL(b);
-    var a = document.createElement('a');
-    a.href = u; a.download = nomeArq; a.click(); URL.revokeObjectURL(u);
-  }
+  var b = new Blob([getConteudo()], {type:'text/plain;charset=utf-8'});
+  var u = URL.createObjectURL(b);
+  var a = document.createElement('a');
+  a.href = u; a.download = nomeArq;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(u);
 }
 function salvarDrive(){
   var cid=localStorage.getItem('gd_cid');
@@ -1091,18 +1086,13 @@ async function baixarPDF(){
   try{
     showMsg('⏳ Gerando PDF...','load');
     var blob = await gerarPDFBlob();
-    var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    var file = new File([blob], getNome(), {type:'application/pdf'});
-    if(isMobile && navigator.canShare && navigator.canShare({files:[file]})){
-      await navigator.share({files:[file], title:'Vistoria', text:'Relatório de Vistoria'});
-    } else {
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url; a.download = getNome(); a.click();
-      URL.revokeObjectURL(url);
-    }
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = getNome();
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 10000);
     showMsg('✅ PDF gerado!','ok');
-  }catch(e){ if(e.name!=='AbortError') showMsg('⚠️ Erro ao gerar PDF.','err'); console.error(e); }
+  }catch(e){ showMsg('⚠️ Erro ao gerar PDF.','err'); console.error(e); }
 }
 
 async function gerarPDFBlob(){
