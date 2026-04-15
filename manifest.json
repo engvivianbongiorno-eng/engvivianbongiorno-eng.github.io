@@ -1,0 +1,19 @@
+{
+  "name": "Check List NR-1/NR-17",
+  "short_name": "Check List",
+  "description": "Checklist de vistoria NR-1 e NR-17",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1b2a",
+  "theme_color": "#0d1b2a",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
