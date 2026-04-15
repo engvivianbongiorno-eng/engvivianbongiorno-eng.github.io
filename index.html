@@ -1048,34 +1048,43 @@ function salvarDrive(){
     '&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.file&prompt=select_account';
 }
 async function uploadDrive(token){
+  var nomBase='Vistoria_'+(E.data?E.data.substring(0,4):'2026')+'_'+E.emp.nome.replace(/[^a-zA-Z0-9]/g,'_').substring(0,30);
+  var enc=new TextEncoder();
+  var bnd='cl_bnd';
+  // 1. Enviar TXT
   try{
-    showMsg('⏳ Gerando PDF...','load');
-    var nomBase='Vistoria_'+(E.data?E.data.substring(0,4):'2026')+'_'+E.emp.nome.replace(/[^a-zA-Z0-9]/g,'_').substring(0,30);
-    // 1. Salvar TXT para o Relatorio
-    var txtContent=getConteudo();
-    var enc=new TextEncoder();
-    var bnd='--cl_bnd';
+    showMsg('⏳ Enviando TXT...','load');
     var metaTxt={name:nomBase+'.txt',mimeType:'text/plain'};
     var t1=enc.encode('--'+bnd+'\r\nContent-Type: application/json\r\n\r\n'+JSON.stringify(metaTxt)+'\r\n--'+bnd+'\r\nContent-Type: text/plain\r\n\r\n');
-    var t2=enc.encode(txtContent);
+    var t2=enc.encode(getConteudo());
     var t3=enc.encode('\r\n--'+bnd+'--');
     var bodyTxt=new Uint8Array(t1.length+t2.length+t3.length);
     bodyTxt.set(t1,0); bodyTxt.set(t2,t1.length); bodyTxt.set(t3,t1.length+t2.length);
-    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+    var rTxt=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
       {method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'multipart/related; boundary='+bnd},body:bodyTxt});
-    // 2. Salvar PDF visual
-    var pdfBlob=await gerarPDFBlob();
+    if(!rTxt.ok) throw new Error('TXT '+rTxt.status);
+  }catch(e){ showMsg('⚠️ Erro ao enviar TXT para o Drive.','err'); console.error(e); return; }
+  // 2. Enviar PDF (com timeout de 20s — pode falhar em mobile)
+  try{
+    showMsg('⏳ Gerando PDF...','load');
+    var pdfBlob=await Promise.race([
+      gerarPDFBlob(),
+      new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},20000);})
+    ]);
     var metaPdf={name:nomBase+'.pdf',mimeType:'application/pdf'};
     var p1=enc.encode('--'+bnd+'\r\nContent-Type: application/json\r\n\r\n'+JSON.stringify(metaPdf)+'\r\n--'+bnd+'\r\nContent-Type: application/pdf\r\n\r\n');
     var p2=new Uint8Array(await pdfBlob.arrayBuffer());
     var p3=enc.encode('\r\n--'+bnd+'--');
     var bodyPdf=new Uint8Array(p1.length+p2.length+p3.length);
     bodyPdf.set(p1,0); bodyPdf.set(p2,p1.length); bodyPdf.set(p3,p1.length+p2.length);
-    var r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+    var rPdf=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
       {method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'multipart/related; boundary='+bnd},body:bodyPdf});
-    if(r.ok) showMsg('✅ TXT e PDF salvos no Google Drive!','ok');
-    else throw new Error();
-  }catch(e){ showMsg('⚠️ Erro ao salvar no Drive.','err'); console.error(e); }
+    if(rPdf.ok) showMsg('✅ TXT e PDF salvos no Google Drive!','ok');
+    else throw new Error('PDF '+rPdf.status);
+  }catch(e){
+    showMsg('✅ TXT salvo! PDF não gerado ('+e.message+').','ok');
+    console.error(e);
+  }
 }
 
 async function baixarPDF(){
@@ -1127,7 +1136,8 @@ async function gerarPDFBlob(){
   div.innerHTML=html;
   document.body.appendChild(div);
   await new Promise(function(r){setTimeout(r,400);});
-  var canvas=await html2canvas(div,{scale:2,backgroundColor:'#ffffff',width:560,windowWidth:580,useCORS:true,allowTaint:false});
+  var escala=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)?1:2;
+  var canvas=await html2canvas(div,{scale:escala,backgroundColor:'#ffffff',width:560,windowWidth:580,useCORS:true,allowTaint:false});
   document.body.removeChild(div);
   var imgData=canvas.toDataURL('image/jpeg',0.95);
   var jsPDF=window.jspdf.jsPDF;
