@@ -388,6 +388,7 @@ const SUBITENS = [
 // ESTADO
 // ============================================================
 var E = {emp:null, setores:[], tec:'', data:'', resp:{}, resps:{}, setorAtual:null};
+var tmDrive = null;
 
 // ============================================================
 // INIT
@@ -971,7 +972,7 @@ function verResultadoGeral(autoSalvo) {
     showMsg('⏳ Salvando no Drive...','load');
     uploadDrive(hashAuto.access_token);
   } else if(!autoSalvo && localStorage.getItem('gd_cid')){
-    var tmDrive=setTimeout(function(){ salvarDrive(); }, 4000);
+    tmDrive=setTimeout(function(){ salvarDrive(); }, 4000);
     var m=document.getElementById('dmsg');
     m.className='dmsg'; m.style.display='block';
     m.innerHTML='⏳ Enviando ao Drive em 4s… <button onclick="clearTimeout(tmDrive);showMsg(\'\',\'ok\');" style="margin-left:8px;padding:2px 10px;border-radius:6px;border:none;background:#dc2626;color:#fff;cursor:pointer;font-size:12px;">Cancelar</button>';
