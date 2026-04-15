@@ -1190,9 +1190,22 @@ function handleOAuthReturn(){
     localStorage.removeItem('dp');
     history.replaceState(null,'',location.pathname);
     var dv=localStorage.getItem('dv');
-    if(dv){ try{ var sv=JSON.parse(dv); E.emp=sv.emp; E.setores=sv.setores; E.tec=sv.tec; E.data=sv.data; E.resps=sv.resps; localStorage.removeItem('dv'); }catch(ex){} }
+    if(dv){
+      try{
+        var sv=JSON.parse(dv);
+        E.emp=sv.emp; E.setores=sv.setores; E.tec=sv.tec; E.data=sv.data; E.resps=sv.resps;
+        localStorage.removeItem('dv');
+      }catch(ex){
+        showMsg('⚠️ Erro ao restaurar dados da vistoria.','err');
+        return;
+      }
+    }
+    if(!E.emp){
+      showMsg('⚠️ Dados da vistoria não encontrados. Repita o envio.','err');
+      return;
+    }
     uploadDrive(hash.access_token);
-    verResultadoGeral();
+    try{ verResultadoGeral(); }catch(ex){ tela(4); showMsg('⚠️ Erro ao exibir resultado: '+ex.message,'err'); }
   } else {
     localStorage.removeItem('dp');
     localStorage.removeItem('dv');
