@@ -110,6 +110,13 @@ input:focus,select:focus,textarea:focus{border-color:#00b4a0;box-shadow:0 0 0 3p
 .bs-c.at{background:linear-gradient(135deg,#22c55e,#16a34a);color:white;border-color:#16a34a;box-shadow:0 2px 6px rgba(34,197,94,.35);}
 .bs-nc.at{background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border-color:#dc2626;box-shadow:0 2px 6px rgba(239,68,68,.35);}
 .bs-na.at{background:linear-gradient(135deg,#94a3b8,#64748b);color:white;border-color:#64748b;box-shadow:0 2px 6px rgba(100,116,139,.25);}
+.bs-s{border-color:#cbd5e1;color:#475569;background:#f8fafc;min-width:46px;}
+.bs-s.at{background:#00b4a0;color:white;border-color:#00b4a0;}
+.sst-inp{width:130px;padding:7px 9px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:13px;font-family:inherit;}
+.sst-inp.larga{width:100%;margin-top:6px;}
+.sst-card{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;}
+.sst-st{font-size:11px;font-weight:700;border-radius:12px;padding:3px 10px;white-space:nowrap;}
+.sst-st.vazio{background:#f1f5f9;color:#64748b;}.sst-st.parc{background:#fef9c3;color:#92400e;}.sst-st.ok{background:#dcfce7;color:#15803d;}
 
 /* OBS NC */
 .ncobs{display:none;margin:4px 14px 12px 14px;background:#fef2f2;border-left:4px solid #ef4444;border-radius:0 10px 10px 0;padding:11px;}
@@ -286,6 +293,15 @@ input:focus,select:focus,textarea:focus{border-color:#00b4a0;box-shadow:0 0 0 3p
 
 <!-- S2: SETORES -->
 <div class="screen" id="s2">
+  <div class="card" style="border-color:#00b4a0;">
+    <div class="card-b sst-card" onclick="abrirSST()">
+      <div>
+        <div style="font-weight:700;font-size:14px;color:#0d1b2a;">🏛️ Informações de SST da empresa</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px;">Grau de risco, conformidades legais, perigos e demandas — uma vez por empresa</div>
+      </div>
+      <span class="sst-st vazio" id="sst-status">Preencher</span>
+    </div>
+  </div>
   <div class="card">
     <div class="card-t">🏢 Setor(es) a Vistoriar</div>
     <div class="card-b">
@@ -326,6 +342,19 @@ input:focus,select:focus,textarea:focus{border-color:#00b4a0;box-shadow:0 0 0 3p
   <div id="cl-body"></div>
   <button class="btn btn-teal" onclick="finalizarSetor()">✅ Finalizar Setor →</button>
   <button class="btn btn-gray" onclick="voltarSetores()">← Setores</button>
+</div>
+
+<!-- S5: INFORMAÇÕES DE SST DA EMPRESA -->
+<div class="screen" id="s5">
+  <div class="card" style="background:#e0f7f5;border-color:#00b4a0;">
+    <div class="card-b" style="padding:10px 13px;">
+      <div style="font-weight:700;font-size:14px;color:#0d1b2a;" id="sst-emp"></div>
+      <div style="font-size:11px;color:#009688;margin-top:2px;">🏛️ Informações de SST da empresa</div>
+    </div>
+  </div>
+  <div id="sst-body"></div>
+  <button class="btn btn-gray" onclick="sstRestanteNao()">Marcar o que falta como "Não"</button>
+  <button class="btn btn-teal" onclick="fecharSST()">✅ Concluir →</button>
 </div>
 
 <!-- S4: RESULTADO -->
@@ -441,7 +470,47 @@ const SUBITENS = [
 // ============================================================
 // ESTADO
 // ============================================================
-var E = {emp:null, setores:[], tec:'', data:'', resp:{}, resps:{}, setorAtual:null, assinatura:null};
+// Informações de SST da empresa (uma vez por vistoria, não por setor).
+// Mesmos campos da aba "Informações de SST" do sistema de documentos.
+// t: 'sn' = Sim/Não, 'num' = número, 'txt' = texto, 'data' = data
+const SST_GRUPOS = [
+  {nome:'Posição atual', ico:'📌', itens:[
+    {id:'grau_risco',  t:'num', p:'Grau de Risco'},
+    {id:'n_empregados',t:'num', p:'Número de Empregados'},
+    {id:'n_terceiros', t:'num', p:'Número de Empregados Terceiros'},
+  ]},
+  {nome:'Verificação de conformidades legais de SST', ico:'⚖️', itens:[
+    {id:'nr01_os',     t:'sn',  p:'As Ordens de Serviço estão adequadas?', nr:'NR-01'},
+    {id:'nr08_edif',   t:'sn',  p:'As Edificações atendem aos requisitos municipais/SST?', nr:'NR-08'},
+    {id:'nr23_incend', t:'sn',  p:'A Proteção contra Incêndios está implementada?', nr:'NR-23'},
+    {id:'pae_validade',t:'data',p:'Data de Validade do PAE'},
+    {id:'nr24_sanit',  t:'sn',  p:'As condições sanitárias estão adequadas?', nr:'NR-24'},
+    {id:'nr26_sinal',  t:'sn',  p:'As sinalizações de segurança estão implementadas?', nr:'NR-26'},
+    {id:'nr_setorial', t:'txt', p:'Enquadramento do Estabelecimento em NR Setorial'},
+  ]},
+  {nome:'Levantamento preliminar de perigos', ico:'⚠️', itens:[
+    {id:'nr10', t:'sn', p:'Realizam atividades de serviços em Eletricidade?', nr:'NR-10'},
+    {id:'nr11', t:'sn', p:'Realizam transporte/movimentação/armazenagem de materiais?', nr:'NR-11'},
+    {id:'nr12', t:'sn', p:'Realizam atividades com máquinas e equipamentos?', nr:'NR-12'},
+    {id:'nr13', t:'sn', p:'Possui equipamentos pressurizados?', nr:'NR-13'},
+    {id:'nr14', t:'sn', p:'Possui fornos?', nr:'NR-14'},
+    {id:'nr17', t:'sn', p:'As atividades sugerem Análise Ergonômica?', nr:'NR-17'},
+    {id:'nr19', t:'sn', p:'Realizam atividades com explosivos?', nr:'NR-19'},
+    {id:'nr20', t:'sn', p:'Realizam atividades com inflamáveis e combustíveis?', nr:'NR-20'},
+    {id:'nr21', t:'sn', p:'Realizam atividades a céu aberto?', nr:'NR-21'},
+    {id:'nr25', t:'sn', p:'As atividades produzem resíduos industriais?', nr:'NR-25'},
+    {id:'nr33', t:'sn', p:'Realizam atividades em espaço confinado?', nr:'NR-33'},
+    {id:'nr35', t:'sn', p:'Realizam atividades com trabalho em altura?', nr:'NR-35'},
+  ]},
+  {nome:'Demandas de SST requeridas', ico:'📑', itens:[
+    {id:'dem_pgr',   t:'sn', p:'Implementa PGR?',   nr:'NR-01/NR-09'},
+    {id:'dem_sesmt', t:'sn', p:'Implementa SESMT?', nr:'NR-04'},
+    {id:'dem_cipa',  t:'sn', p:'Implementa CIPA?',  nr:'NR-05'},
+    {id:'dem_pcmso', t:'sn', p:'Implementa PCMSO?', nr:'NR-07'},
+  ]},
+];
+
+var E = {emp:null, setores:[], tec:'', data:'', resp:{}, resps:{}, setorAtual:null, assinatura:null, sst:{}};
 var tmDrive = null;
 
 // ============================================================
@@ -656,6 +725,97 @@ function ir2() {
   document.getElementById('btn-resultado').style.display =
     Object.keys(E.resps).length > 0 ? 'block' : 'none';
   tela(2);
+}
+
+// ============================================================
+// INFORMAÇÕES DE SST DA EMPRESA
+// ============================================================
+function sstValor(it) {
+  var v = (E.sst || {})[it.id];
+  if (v === undefined || v === null || v === '') return '';
+  if (it.t === 'sn') return v === 's' ? 'Sim' : 'Não';
+  if (it.t === 'data') { var d = String(v).split('-'); return d.length === 3 ? d[2]+'/'+d[1]+'/'+d[0] : v; }
+  return String(v);
+}
+function sstContagem() {
+  var total = 0, feitos = 0;
+  SST_GRUPOS.forEach(function(g){ g.itens.forEach(function(it){
+    if (it.t !== 'sn') return;          // só Sim/Não conta como pendência
+    total++; if ((E.sst || {})[it.id]) feitos++;
+  }); });
+  return {total: total, feitos: feitos};
+}
+function atualizarStatusSST() {
+  var el = document.getElementById('sst-status'); if (!el) return;
+  if (!E.sst) E.sst = {};               // rascunho antigo não tinha este campo
+  var c = sstContagem();
+  var algum = Object.keys(E.sst).some(function(k){ return E.sst[k] !== '' && E.sst[k] != null; });
+  if (!algum) { el.className = 'sst-st vazio'; el.textContent = 'Preencher'; }
+  else if (c.feitos < c.total) { el.className = 'sst-st parc'; el.textContent = '⏳ ' + c.feitos + ' de ' + c.total; }
+  else { el.className = 'sst-st ok'; el.textContent = '✅ Completo'; }
+}
+function sstGuardar() { if (typeof _triggerRasc === 'function') _triggerRasc(); }
+function sstInp(id, el) { E.sst[id] = el.value; sstGuardar(); }
+function abrirSST() {
+  if (!E.sst) E.sst = {};
+  document.getElementById('sst-emp').textContent = E.emp.nome;
+  var html = '';
+  SST_GRUPOS.forEach(function(g){
+    html += '<div class="card"><div class="card-t">' + g.ico + ' ' + g.nome + '</div><div>';
+    g.itens.forEach(function(it){
+      var v = E.sst[it.id] || '';
+      var nr = it.nr ? '<div class="perg-nr">' + it.nr + '</div>' : '';
+      if (it.t === 'sn') {
+        html += '<div class="perg"><div class="perg-row">' +
+          '<div><div class="perg-txt">' + it.p + '</div>' + nr + '</div>' +
+          '<div class="btns">' +
+            '<button class="bs bs-s' + (v === 's' ? ' at' : '') + '" onclick="setSST(\'' + it.id + '\',\'s\',this)">Sim</button>' +
+            '<button class="bs bs-s' + (v === 'n' ? ' at' : '') + '" onclick="setSST(\'' + it.id + '\',\'n\',this)">Não</button>' +
+          '</div></div></div>';
+      } else if (it.t === 'txt') {
+        html += '<div class="perg"><div class="perg-txt">' + it.p + '</div>' +
+          '<input class="sst-inp larga" type="text" value="' + String(v).replace(/"/g, '&quot;') + '" ' +
+          'oninput="sstInp(\'' + it.id + '\',this)"/></div>';
+      } else {
+        html += '<div class="perg"><div class="perg-row"><div class="perg-txt">' + it.p + '</div>' +
+          '<input class="sst-inp" type="' + (it.t === 'data' ? 'date' : 'number') + '" ' +
+          (it.t === 'num' ? 'min="0" inputmode="numeric" ' : '') +
+          'value="' + v + '" oninput="sstInp(\'' + it.id + '\',this)"/></div></div>';
+      }
+    });
+    html += '</div></div>';
+  });
+  document.getElementById('sst-body').innerHTML = html;
+  tela(5);
+}
+function setSST(id, val, btn) {
+  E.sst[id] = (E.sst[id] === val) ? '' : val;      // clicar de novo desmarca
+  btn.parentNode.querySelectorAll('.bs').forEach(function(b){ b.classList.remove('at'); });
+  if (E.sst[id]) btn.classList.add('at');
+  sstGuardar();
+}
+function sstRestanteNao() {
+  SST_GRUPOS.forEach(function(g){ g.itens.forEach(function(it){
+    if (it.t === 'sn' && !E.sst[it.id]) E.sst[it.id] = 'n';
+  }); });
+  sstGuardar();
+  abrirSST();
+}
+function fecharSST() {
+  if (typeof autoSalvarRascunho === 'function') autoSalvarRascunho();
+  tela(2);
+}
+// Informações de SST preenchidas, agrupadas (TXT, PDF e resumo).
+function sstLinhas() {
+  var out = [];
+  SST_GRUPOS.forEach(function(g){
+    var itens = g.itens.filter(function(it){ return sstValor(it) !== ''; });
+    if (!itens.length) return;
+    out.push({grupo: g.nome, itens: itens.map(function(it){
+      return {p: it.p, nr: it.nr || '', v: sstValor(it)};
+    })});
+  });
+  return out;
 }
 
 function criarChip(s) {
@@ -998,6 +1158,16 @@ function verResultadoGeral(autoSalvo) {
     '<strong>'+E.emp.nome+'</strong><br>CNPJ: '+(E.emp.cnpj_fmt||'—')+'<br>'+(E.tec||'-')+' · '+dt+
     '<br>Setores: '+setoresVisitados.join(', ');
   var ncHtml='';
+  var sstRes=sstLinhas();
+  if(sstRes.length){
+    ncHtml+='<div class="div"></div><div style="font-size:11px;font-weight:700;color:#00796b;margin-bottom:8px;text-transform:uppercase;">🏛️ Informações de SST da empresa</div>';
+    sstRes.forEach(function(g){
+      ncHtml+='<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin:8px 0 3px;">'+g.grupo+'</div>';
+      g.itens.forEach(function(i){
+        ncHtml+='<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;border-bottom:1px solid #f1f5f9;"><span>'+i.p+(i.nr?' <span style="color:#94a3b8;font-size:10px;">'+i.nr+'</span>':'')+'</span><strong style="white-space:nowrap;">'+i.v+'</strong></div>';
+      });
+    });
+  }
   if(levArr.length){
     ncHtml+='<div class="div"></div><div style="font-size:11px;font-weight:700;color:#ca8a04;margin-bottom:8px;text-transform:uppercase;">📊 Valores Medidos (Levantamento)</div>';
     levArr.forEach(function(l){
@@ -1019,7 +1189,7 @@ function verResultadoGeral(autoSalvo) {
     });
   }
   if(!levArr.length && !ncsArr.length){
-    ncHtml='<div style="text-align:center;padding:10px;color:#16a34a;font-weight:700;">✅ Nenhuma não conformidade!</div>';
+    ncHtml+='<div style="text-align:center;padding:10px;color:#16a34a;font-weight:700;">✅ Nenhuma não conformidade!</div>';
   }
   document.getElementById('nc-list').innerHTML=ncHtml;
   tela(4);
@@ -1166,6 +1336,15 @@ function getConteudo(){
   var linhas=['CHECKLIST — NR-1 / NR-17','========================================',
     'Empresa: '+E.emp.nome+' ('+E.emp.codigo+')','CNPJ: '+(E.emp.cnpj_fmt||'—'),
     'Técnico: '+(E.tec||'-'),'Data: '+dt,''];
+  var sst = sstLinhas();
+  if (sst.length) {
+    linhas.push('════ INFORMAÇÕES DE SST DA EMPRESA ════');
+    sst.forEach(function(g){
+      linhas.push('['+g.grupo+']');
+      g.itens.forEach(function(i){ linhas.push('  '+i.p+(i.nr?' ('+i.nr+')':'')+': '+i.v); });
+      linhas.push('');
+    });
+  }
   E.setores.forEach(function(s){
     var resp = E.resps[s];
     if (!resp) return;
@@ -1232,7 +1411,7 @@ function salvarDrive(){
   localStorage.setItem('pkce_v',verifier);
   _pkceChallenge(verifier).then(function(challenge){
     localStorage.setItem('dp','1');
-    localStorage.setItem('dv',JSON.stringify({emp:E.emp,setores:E.setores,tec:E.tec,data:E.data,resps:E.resps,assinatura:E.assinatura}));
+    localStorage.setItem('dv',JSON.stringify({emp:E.emp,setores:E.setores,tec:E.tec,data:E.data,resps:E.resps,assinatura:E.assinatura,sst:E.sst}));
     var redirect='https://engvivianbongiorno-eng.github.io/callback.html';
     location.href='https://accounts.google.com/o/oauth2/v2/auth?client_id='+encodeURIComponent(cid)+
       '&redirect_uri='+encodeURIComponent(redirect)+
@@ -1325,6 +1504,17 @@ async function gerarPDFBlob(){
   html+='<div style="flex:1;border:2px solid #fecaca;border-radius:8px;padding:12px;text-align:center;"><div style="font-size:32px;font-weight:700;color:#dc2626;">'+nc+'</div><div style="font-size:11px;color:#dc2626;">Nao Adequado</div></div>';
   html+='<div style="flex:1;border:2px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center;"><div style="font-size:32px;font-weight:700;color:#475569;">'+na+'</div><div style="font-size:11px;color:#475569;">NA</div></div>';
   html+='</div>';
+  var sstPdf=sstLinhas();
+  if(sstPdf.length){
+    html+='<div style="margin-top:14px;"><div style="font-weight:700;color:#00796b;font-size:13px;margin-bottom:8px;">INFORMACOES DE SST DA EMPRESA</div>';
+    sstPdf.forEach(function(g){
+      html+='<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin:8px 0 4px;">'+g.grupo+'</div>';
+      g.itens.forEach(function(i){
+        html+='<div style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #f1f5f9;padding:3px 0;font-size:11px;"><span>'+i.p+(i.nr?' <span style="color:#94a3b8;">('+i.nr+')</span>':'')+'</span><strong style="white-space:nowrap;color:'+(i.v==='Sim'?'#00796b':'#334155')+';">'+i.v+'</strong></div>';
+      });
+    });
+    html+='</div>';
+  }
   if(levHtml){ html+='<div style="margin-top:14px;"><div style="font-weight:700;color:#ca8a04;font-size:13px;margin-bottom:8px;">📊 VALORES MEDIDOS (LEVANTAMENTO)</div>'+levHtml+'</div>'; }
   if(nc>0){ html+='<div style="margin-top:14px;"><div style="font-weight:700;color:#dc2626;font-size:13px;margin-bottom:8px;">NAO CONFORMIDADES</div>'+ncsHtml+'</div>'; }
   else if(!levHtml){ html+='<div style="margin-top:14px;text-align:center;color:#16a34a;font-weight:600;">Nenhuma nao conformidade!</div>'; }
@@ -1382,7 +1572,7 @@ function salvarCid(){
 // HELPERS
 // ============================================================
 function novaVistoria(){
-  E={emp:null,setores:[],tec:'',data:'',resp:{},resps:{},setorAtual:null};
+  E={emp:null,setores:[],tec:'',data:'',resp:{},resps:{},setorAtual:null,sst:{}};
   localStorage.removeItem('cl_rasc');
   document.getElementById('inp-nome').value='';
   document.getElementById('inp-cnpj').value='';
@@ -1396,6 +1586,7 @@ function novaVistoria(){
   setTab('nome'); tela(1);
 }
 function tela(n){
+  if(n===2) atualizarStatusSST();
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
   document.getElementById('s'+n).classList.add('active');
   window.scrollTo(0,0);
@@ -1432,7 +1623,7 @@ function handleOAuthReturn(){
   if(dv){
     try{
       var sv=JSON.parse(dv);
-      E.emp=sv.emp; E.setores=sv.setores; E.tec=sv.tec; E.data=sv.data; E.resps=sv.resps; E.assinatura=sv.assinatura||null;
+      E.emp=sv.emp; E.setores=sv.setores; E.tec=sv.tec; E.data=sv.data; E.resps=sv.resps; E.assinatura=sv.assinatura||null; E.sst=sv.sst||{};
     }catch(ex){showMsg('⚠️ Erro ao restaurar dados da vistoria.','err');return true;}
   }
   if(!E.emp){showMsg('⚠️ Dados da vistoria não encontrados. Repita o envio.','err');return true;}
@@ -1470,7 +1661,7 @@ function autoSalvarRascunho(){
     localStorage.setItem('cl_rasc', JSON.stringify({
       emp:E.emp, setores:E.setores, tec:E.tec, data:E.data,
       resps:E.resps, resp:E.resp, setorAtual:E.setorAtual,
-      assinatura:E.assinatura, ts:Date.now()
+      assinatura:E.assinatura, sst:E.sst, ts:Date.now()
     }));
   }catch(ex){}
 }
@@ -1485,7 +1676,7 @@ function restaurarRascunho(){
     var d = JSON.parse(raw);
     E.emp=d.emp; E.setores=d.setores||[]; E.tec=d.tec||''; E.data=d.data||'';
     E.resps=d.resps||{}; E.resp=d.resp||{}; E.setorAtual=d.setorAtual||null;
-    E.assinatura=d.assinatura||null;
+    E.assinatura=d.assinatura||null; E.sst=d.sst||{};
     document.getElementById('draft-banner').style.display='none';
     document.getElementById('f-tec').value = E.tec;
     document.getElementById('f-data').value = E.data;
